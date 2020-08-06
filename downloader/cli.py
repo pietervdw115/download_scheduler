@@ -102,7 +102,8 @@ def start():
     while True:
         schedule.run_pending()
         click.secho("Waiting for 00:00", fg='green')
-        time.sleep(1)
+        time.sleep(60)
+
 
 @main.command()
 def clear():
