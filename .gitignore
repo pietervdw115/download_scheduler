@@ -1,0 +1,13 @@
+*.pyc
+.cache/
+.idea/
+*.egg-info/
+.eggs
+build/
+dist/
+tmp/
+.coverage
+coverage_html_report
+logs/
+.DS_STORE
+venv
