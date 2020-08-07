@@ -6,6 +6,7 @@ import schedule
 import time
 
 cwd = os.getcwd()
+running = True
 
 
 def get_filename_from_cd(cd):
@@ -30,7 +31,7 @@ def get_filename(url, r):
             filename = url.rsplit('/', 1)[1]
             return filename
         else:
-            print("Something went wrong")
+            click.secho("Something went wrong", fg='red')
     else:
         return filename
 
@@ -38,7 +39,7 @@ def get_filename(url, r):
 def download_file(url, filename):
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
-        with open(filename, 'wb') as f:
+        with open(cwd + "/" + filename, 'wb') as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
 
@@ -52,7 +53,7 @@ def main():
 
 
 @main.command()
-def download():
+def add():
     """
         Schedule a new download
     """
@@ -60,7 +61,8 @@ def download():
         "Please enter your download URL",
     )
 
-    file_object = open('urls.txt', 'a')
+    file = os.path.expanduser('~/.downloader/urls.txt')
+    file_object = open(file, 'a')
     file_object.write(url + "\n")
     file_object.close()
 
@@ -70,9 +72,14 @@ def start():
     """
         Start the scheduler
     """
+    global running
+    running = True
+
     def job():
+        click.secho("Downloads started", fg='green')
         urls = []
-        url_file = open('urls.txt', 'r')
+        file = os.path.expanduser('~/.downloader/urls.txt')
+        url_file = open(file, 'r')
         count = 0
 
         while True:
@@ -83,9 +90,10 @@ def start():
             urls.append(line.strip())
 
         url_file.close()
-
+        downloading = False
         for url in urls:
-            print(url)
+            downloading = True
+            click.secho("Downloading from " + url, fg='cyan')
             url = url
             r = requests.get(url, allow_redirects=True, stream=True)
             filename = get_filename(url, r)
@@ -93,16 +101,23 @@ def start():
                 click.secho("Filename already exists \n Skipping...", fg='red')
             else:
                 download_file(url, filename)
-                click.secho(filename + " successfully downloaded.", fg='green')
-        click.secho("All downloads completed", fg='green')
-        return schedule.CancelJob
+                click.secho(filename + " successfully downloaded.", fg='cyan', bold=True)
+        if downloading:
+            click.secho("All downloads completed", fg='green', bold=True)
+        else:
+            click.secho("Nothing to download", fg='red', bold=True)
+            click.secho("Use `downloader add` to add downloads", fg='red', bold=True)
+        global running
+        running = False
 
-    schedule.every().day.at("00:00").do(job)
+    # schedule.every().day.at("00:00").do(job)
+    schedule.every(10).seconds.do(job)
 
-    while True:
+    while running:
+        click.secho("Waiting for 00:00", fg='yellow')
         schedule.run_pending()
-        click.secho("Waiting for 00:00", fg='green')
-        time.sleep(60)
+        # time.sleep(60)
+        time.sleep(1)
 
 
 @main.command()
@@ -110,4 +125,19 @@ def clear():
     """
         Clear download list
     """
-    open('urls.txt', 'w').close()
+    url_file = os.path.expanduser('~/.downloader/urls.txt')
+    open(url_file, 'w').close()
+
+
+@main.command()
+def init():
+    """
+        Initialize the application
+    """
+    config_dir = os.path.expanduser('~/.downloader')
+    if not os.path.exists(config_dir):
+        os.mkdir(config_dir)
+    url_file = os.path.expanduser(config_dir + '/urls.txt')
+    with open(url_file, 'w') as urls:
+        urls.write("")
+    open(url_file, 'w').close()
